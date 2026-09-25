@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --font-hand: "Patrick Hand", cursive, sans-serif;
+  --font-title: "Gloria Hallelujah", cursive, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+body {
+  font-family: var(--font-hand);
+  background-color: #d6d3cb;
+}
+
+.font-hand {
+  font-family: var(--font-hand);
+}
+
+.font-title {
+  font-family: var(--font-title);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Wall texture with vignette */
+.wall-background {
+  background-color: #cac6bc;
+  background-image: 
+    radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.45) 0%, rgba(185, 180, 168, 0.5) 60%, rgba(95, 90, 80, 0.7) 100%),
+    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0, 0, 0, 0.015) 3px, rgba(0, 0, 0, 0.015) 6px);
+}
+
+/* Aged paper sheet styling */
+.paper-sheet {
+  background-color: #fbf8ee;
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(230, 215, 185, 0.2) 0%, transparent 40%),
+    radial-gradient(circle at 90% 85%, rgba(215, 195, 160, 0.25) 0%, transparent 45%),
+    linear-gradient(178deg, #fdfaf2 0%, #f7f2e2 50%, #f3ece0 100%);
+  border-radius: 4px 6px 3px 5px;
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.15),
+    0 8px 18px -4px rgba(45, 38, 30, 0.25),
+    0 20px 35px -8px rgba(35, 30, 25, 0.35),
+    inset 0 0 40px rgba(180, 150, 110, 0.07);
+}
+
+/* Slightly smaller secondary pinned note */
+.pinned-note {
+  background-color: #fffdec;
+  background-image: linear-gradient(175deg, #fffef5 0%, #f7f3d8 100%);
+  box-shadow: 
+    0 4px 12px -2px rgba(40, 35, 30, 0.2),
+    0 12px 24px -6px rgba(30, 25, 20, 0.25);
+}
+
+/* Pencil hand-drawn borders */
+.pencil-border {
+  border: 2px solid #292524;
+  border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+}
+
+.pencil-border-dashed {
+  border: 2px dashed #57534e;
+  border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+}
+
+/* Thumbtack / Chincheta 3D effect */
+.pushpin-red {
+  background: radial-gradient(circle at 35% 35%, #f87171, #dc2626 55%, #7f1d1d 95%);
+  box-shadow: 
+    inset 0 2px 2px rgba(255, 255, 255, 0.6),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.5),
+    0 6px 8px -1px rgba(0, 0, 0, 0.45);
+}
+
+.pushpin-pin {
+  box-shadow: 1px 3px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* Tape sticker effect */
+.masking-tape {
+  background-color: rgba(235, 225, 195, 0.65);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-left: 2px dashed rgba(200, 190, 160, 0.4);
+  border-right: 2px dashed rgba(200, 190, 160, 0.4);
+}

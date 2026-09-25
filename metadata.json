@@ -1,0 +1,6 @@
+{
+  "name": "Four Souls Online",
+  "description": "Aplicación web multijugador para Four Souls Online con salas de espera, códigos de unión y gestión de partidas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
