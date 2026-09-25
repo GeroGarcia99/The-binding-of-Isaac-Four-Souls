@@ -8,7 +8,7 @@
  */
 
 import { Redis } from '@upstash/redis';
-import { Room } from '../types/room';
+import { Room } from '../types/room.ts';
 
 // Tiempo de vida de la sala tras inactividad: 2 horas (en segundos)
 const ROOM_TTL_SECONDS = 7200;

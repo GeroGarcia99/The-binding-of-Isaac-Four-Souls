@@ -7,9 +7,9 @@
  * 3. BroadcastChannel y LocalStorage para pestañas en el mismo navegador.
  */
 
-import { Room, Player, RoomActionResult } from '../types/room';
-import { RoomManager } from '../game/roomManager';
-import { normalizeRoomCode, isValidRoomCode } from '../game/codeGenerator';
+import { Room, Player, RoomActionResult } from '../types/room.ts';
+import { RoomManager } from '../game/roomManager.ts';
+import { normalizeRoomCode, isValidRoomCode } from '../game/codeGenerator.ts';
 
 const STORAGE_PREFIX = 'fso_room_';
 const BROADCAST_CHANNEL_NAME = 'fso_rooms_channel';

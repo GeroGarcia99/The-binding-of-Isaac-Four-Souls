@@ -8,8 +8,8 @@
  * - Gestión de estados: 'waiting' | 'playing' | 'finished'
  */
 
-import { Room, Player, PlayerSlot, RoomStatus } from '../types/room';
-import { generateRoomCode, normalizeRoomCode, isValidRoomCode } from './codeGenerator';
+import { Room, Player, PlayerSlot, RoomStatus } from '../types/room.ts';
+import { generateRoomCode, normalizeRoomCode, isValidRoomCode } from './codeGenerator.ts';
 
 export class RoomManager {
   /**
