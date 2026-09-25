@@ -1,11 +1,10 @@
 /**
  * Four Souls Online - Servicio de Sincronización y Almacenamiento de Salas
  * 
- * Gestiona el almacenamiento temporal de las salas.
- * Proporciona sincronización en tiempo real:
- * 1. Intenta sincronizar con el backend Express (/api/rooms) si está disponible.
- * 2. Mantiene sincronización entre pestañas en el navegador usando BroadcastChannel y LocalStorage.
- * Esto asegura que dos jugadores (en pestañas o dispositivos) se sincronicen perfectamente.
+ * Gestiona el ciclo de vida de salas y sincronización en tiempo real:
+ * 1. API backend (/api/rooms) tanto en local como en despliegues Serverless (Vercel).
+ * 2. Polling activo (1.2s) para sincronizar dispositivos remotos (ej. Celular y Computadora).
+ * 3. BroadcastChannel y LocalStorage para pestañas en el mismo navegador.
  */
 
 import { Room, Player, RoomActionResult } from '../types/room';
@@ -21,6 +20,7 @@ class RoomStore {
   private memoryRooms: Map<string, Room> = new Map(); // Key: code
   private channel: BroadcastChannel | null = null;
   private listeners: Map<string, Set<RoomListener>> = new Map(); // Key: code
+  private pollingIntervals: Map<string, number> = new Map(); // Key: code, Value: intervalId
 
   constructor() {
     this.initBroadcastChannel();
@@ -29,31 +29,39 @@ class RoomStore {
 
   private initBroadcastChannel() {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-      this.channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
-      this.channel.onmessage = (event) => {
-        const { type, room, code } = event.data || {};
-        if (type === 'ROOM_UPDATED' && room) {
-          this.memoryRooms.set(room.code, room);
-          this.saveToStorage(room);
-          this.notifyListeners(room.code, room);
-        } else if (type === 'ROOM_DELETED' && code) {
-          this.memoryRooms.delete(code);
-          this.removeFromStorage(code);
-          this.notifyListeners(code, null);
-        }
-      };
+      try {
+        this.channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+        this.channel.onmessage = (event) => {
+          const { type, room, code } = event.data || {};
+          if (type === 'ROOM_UPDATED' && room) {
+            this.memoryRooms.set(room.code, room);
+            this.saveToStorage(room);
+            this.notifyListeners(room.code, room);
+          } else if (type === 'ROOM_DELETED' && code) {
+            this.memoryRooms.delete(code);
+            this.removeFromStorage(code);
+            this.notifyListeners(code, null);
+          }
+        };
+      } catch {
+        // BroadcastChannel unavailable
+      }
     }
   }
 
   private broadcastUpdate(room: Room) {
     if (this.channel) {
-      this.channel.postMessage({ type: 'ROOM_UPDATED', room });
+      try {
+        this.channel.postMessage({ type: 'ROOM_UPDATED', room });
+      } catch {}
     }
   }
 
   private broadcastDelete(code: string) {
     if (this.channel) {
-      this.channel.postMessage({ type: 'ROOM_DELETED', code });
+      try {
+        this.channel.postMessage({ type: 'ROOM_DELETED', code });
+      } catch {}
     }
   }
 
@@ -101,7 +109,51 @@ class RoomStore {
   }
 
   /**
-   * Suscribe un listener a cambios en una sala específica
+   * Consulta el servidor para sincronizar el estado más reciente de la sala
+   * (Crucial para sincronizar celular y PC)
+   */
+  public async pollRoomFromServer(code: string): Promise<void> {
+    const normalized = normalizeRoomCode(code);
+    try {
+      const response = await fetch(`/api/rooms/${normalized}`, {
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.room) {
+          const serverRoom = data.room as Room;
+          const current = this.memoryRooms.get(normalized);
+
+          const hasChanged =
+            !current ||
+            current.updatedAt !== serverRoom.updatedAt ||
+            current.players.length !== serverRoom.players.length ||
+            current.status !== serverRoom.status ||
+            JSON.stringify(current.players) !== JSON.stringify(serverRoom.players);
+
+          if (hasChanged) {
+            this.memoryRooms.set(normalized, serverRoom);
+            this.saveToStorage(serverRoom);
+            this.broadcastUpdate(serverRoom);
+            this.notifyListeners(normalized, serverRoom);
+          }
+        }
+      } else if (response.status === 404) {
+        if (this.memoryRooms.has(normalized)) {
+          this.memoryRooms.delete(normalized);
+          this.removeFromStorage(normalized);
+          this.broadcastDelete(normalized);
+          this.notifyListeners(normalized, null);
+        }
+      }
+    } catch {
+      // Error de red temporal en el poll; reintentará en el siguiente intervalo
+    }
+  }
+
+  /**
+   * Suscribe un listener a cambios en una sala específica y activa el polling continuo
    */
   public subscribeToRoom(code: string, listener: RoomListener): () => void {
     const normalized = normalizeRoomCode(code);
@@ -114,12 +166,29 @@ class RoomStore {
     const current = this.getRoom(normalized);
     listener(current);
 
+    // Ejecutar poll inmediato
+    this.pollRoomFromServer(normalized);
+
+    // Iniciar intervalo de polling si no está activo
+    if (!this.pollingIntervals.has(normalized) && typeof window !== 'undefined') {
+      const intervalId = window.setInterval(() => {
+        this.pollRoomFromServer(normalized);
+      }, 1200);
+      this.pollingIntervals.set(normalized, intervalId);
+    }
+
     return () => {
       const set = this.listeners.get(normalized);
       if (set) {
         set.delete(listener);
         if (set.size === 0) {
           this.listeners.delete(normalized);
+          // Detener polling de esta sala al salir todos los observadores
+          const timer = this.pollingIntervals.get(normalized);
+          if (timer) {
+            window.clearInterval(timer);
+            this.pollingIntervals.delete(normalized);
+          }
         }
       }
     };
@@ -153,7 +222,6 @@ class RoomStore {
    */
   public async createRoom(options?: { maxPlayers?: number }): Promise<RoomActionResult<{ room: Room; player: Player }>> {
     try {
-      // Intentar API backend primero si responde
       const serverResponse = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -170,7 +238,7 @@ class RoomStore {
         }
       }
     } catch {
-      // Fallback a almacenamiento local / cliente
+      // Fallback a almacenamiento local
     }
 
     // Creación local
@@ -196,7 +264,6 @@ class RoomStore {
       return { success: false, error: 'El código debe tener exactamente 6 caracteres' };
     }
 
-    // Intentar API backend primero
     try {
       const serverResponse = await fetch(`/api/rooms/${normalized}/join`, {
         method: 'POST',
@@ -222,7 +289,7 @@ class RoomStore {
       // Fallback local
     }
 
-    // Buscar sala localmente
+    // Buscar sala localmente si el servidor no estaba disponible
     const room = this.getRoom(normalized);
     if (!room) {
       return {
